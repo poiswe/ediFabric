@@ -40,6 +40,22 @@ namespace EdiFabric.Framework
         }
 
         /// <summary>
+        /// Converts a stream into string
+        /// </summary>
+        /// <param name="ediStream">The stream</param>
+        /// <param name="encoding">Encoding of the stream</param>
+        /// <returns>The string</returns>
+        public static string ToEdiString(this Stream ediStream, System.Text.Encoding encoding)
+        {
+            if (ediStream == null) throw new ArgumentNullException("ediStream");
+
+            using (var reader = new StreamReader(ediStream, encoding, false))
+            {
+                return reader.ReadToEnd();
+            }
+        }
+
+        /// <summary>
         /// Serializes an instance
         /// </summary>
         /// <typeparam name="T">The type of the instance</typeparam>
@@ -50,7 +66,15 @@ namespace EdiFabric.Framework
             // Fix: using instance.GetType() instead of typeof(T)
             var type = instance.GetType();
 
-            var serializer = new XmlSerializer(type, GetNamespace(type));
+            //this throws an error via netFramework because the netFW tries to load the assembly from disc like described in http://edifabric.com/answers/error-edifabric-framework-xmlserializers-can-load/ or in the commit description
+            //var serializer = new XmlSerializer(type, GetNamespace(type));
+
+            //so it is better to generate the assembly by ourselves because we know the file searched for by the netFW isn't there
+            string defaultNamespace = GetNamespace(type);
+            XmlReflectionImporter importer = new XmlReflectionImporter(defaultNamespace);
+            XmlTypeMapping xmltm = importer.ImportTypeMapping(type, null, defaultNamespace);
+            var serializer = new XmlSerializer(xmltm);
+
             using (var ms = new MemoryStream())
             {
                 serializer.Serialize(ms, instance);
